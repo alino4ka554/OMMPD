@@ -1,0 +1,28 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace OMMPD
+{
+    public class Operation
+    {
+        public int Id { get; set; }
+        public List<int> DependsOn { get; set; } = new List<int>();
+        public int Project { get; set; }
+        public int Resource { get; set; }
+        public double NormalTime { get; set; }
+        public double CrashTime { get; set; }
+        public double NormalCost { get; set; }
+        public double CrashCost { get; set; }
+        public double StartTime { get; set; }
+        public double Acceleration { get; set; }
+
+        public double ActualTime => Math.Max(NormalTime - Acceleration, CrashTime);
+        public double ActualCost => NormalCost + Delta * Acceleration;
+        public double Delta => (CrashCost - NormalCost) / (NormalTime - CrashTime);
+
+        public double EndTime => StartTime + ActualTime;
+    }
+}
