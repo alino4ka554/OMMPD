@@ -48,7 +48,7 @@ namespace OMMPD
             {
                 foreach(var j in _operations.Values)
                 {
-                    if((i != j) && i.Resource == j.Resource)
+                    if((i != j) && i.Resource == j.Resource && !i.DependsOn.Contains(j.Id) && !j.DependsOn.Contains(i.Id))
                     {
                         _pheromones.Add((i.Id, j.Id), _tauMax);
                     }
@@ -60,22 +60,22 @@ namespace OMMPD
         {
             for(int i = 0; i < _iterations; i++)
             {
-                CalculateProbability();
                 for(int j = 0; j < _ants; j++)
                 {
-                    var solution = BuildSolution();
-                    CalculateStartTimes(solution.Operations.Values.ToList());
+                    var solution = SetPriority();
+                    CalculateStartTime(solution.Operations);
                     if (solution.Operations.Values == null)
                         break;
                     CalculateTotalTime(solution);
                     UpdateBest(solution);
-                    //Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
+                    Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
                 }
                 UpdatePheromones();
 
                 Console.WriteLine($"Итерация {i}: лучшее время = {BestSolution.TotalTime}");
             }
         }
+
         private void UpdateBest(ScheduleSolution solution)
         {
             if (BestSolution == null || solution.TotalTime < BestSolution.TotalTime)
@@ -138,6 +138,40 @@ namespace OMMPD
             }
             solution.Operations = operations;
             return solution;
+        }
+        private void CalculateBeginTime(List<Operation> operations)
+        {
+            // Сбрасываем времена
+            foreach (var op in operations)
+            {
+                op.StartTime = -1;
+                op.IsRunning = false;
+            }
+
+            // Пока есть хотя бы одна операция без BeginTime
+            bool updated;
+            do
+            {
+                updated = false;
+
+                foreach (var operation in operations)
+                {
+                    if (operation.StartTime >= 0) continue;
+
+                    var preds = operations.Where(o => operation.DependsOn.Contains(o.Id)).ToList();
+
+                    if (!preds.Any()) // без предков
+                    {
+                        operation.StartTime = 0;
+                        updated = true;
+                    }
+                    else if (preds.All(p => p.StartTime >= 0))
+                    {
+                        operation.StartTime = preds.Max(p => p.EndTime);
+                        updated = true;
+                    }
+                }
+            } while (updated);
         }
         public static void CalculateStartTimes(List<Operation> operations)
         {
@@ -215,7 +249,125 @@ namespace OMMPD
             }
             solution.TotalTime = totalTime;
         }
+        public ScheduleSolution SetPriority()
+        {
+            var operations = _operations.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Clone()
+            );
+            ScheduleSolution solution = new ScheduleSolution(operations, _pheromones);
+            foreach(var op in operations)
+            {
+                if (op.Value.DependsOn.Count != 0)
+                {
+                    int flag = op.Value.Priority;
+                    foreach(var j in op.Value.DependsOn)
+                    {
+                        if (operations[j].Priority > flag)
+                            flag += operations[j].Priority;
+                    }
+                }
+                foreach (var phe in _pheromones)
+                {
+                    if (phe.Key.Item2 == op.Key)
+                    {
+                        var i = phe.Key.Item1;
+                        var Wij = DoesIDependsOnJ(i, op.Key, operations, solution);
+                        if (!Wij)
+                            operations[i].Priority += op.Value.Priority;
+                        else if (operations[i].Priority > op.Value.Priority)
+                                op.Value.Priority += operations[i].Priority;
+                    }
+                }
+            }
+            return solution;
+        }
+        public void CalculateStartTime(Dictionary<int, Operation> operations)
+        {
+            foreach (var op in operations.Values)
+                op.StartTime = -1;
 
+            // 2. Сортируем приоритеты (1, 2, 3, ...)
+            var priorityLevels = operations.Values
+                .Select(o => o.Priority)
+                .Distinct()
+                .OrderBy(p => p)
+                .ToList();
+
+            // 3. Идём по уровням приоритета
+            foreach (var priority in priorityLevels)
+            {
+                var currentOps = operations.Values
+                    .Where(o => o.Priority == priority)
+                    .ToList();
+
+                foreach (var op in currentOps)
+                {
+                    // 3.1. Начальное время = конец всех предшественников
+                    double start = 0;
+
+                    if (op.DependsOn.Any())
+                    {
+                        var predEnd = op.DependsOn
+                            .Select(id => operations[id].StartTime + operations[id].NormalTime)
+                            .DefaultIfEmpty(0)
+                            .Max();
+
+                        start = Math.Max(start, predEnd);
+                    }
+
+                    // 3.2. Учитываем операции, использующие тот же ресурс
+                    var sameResource = operations.Values
+                        .Where(o => o.Resource == op.Resource &&
+                                    o.Priority <= op.Priority &&
+                                    o.Id != op.Id &&
+                                    o.StartTime >= 0)
+                        .Select(o => o.StartTime + o.NormalTime)
+                        .DefaultIfEmpty(0)
+                        .Max();
+
+                    start = Math.Max(start, sameResource);
+
+                    // 3.3. Устанавливаем время начала
+                    op.StartTime = start;
+                    _operations[op.Id].StartTime = start;
+                }
+            }
+        }
+        public void HaveTheCycle(Dictionary<int, Operation> operations)
+        {
+            foreach(var op in operations)
+            {
+                foreach(var j in op.Value.DependsOn)
+                {
+                    if (operations[j].Priority > op.Value.Priority)
+                        op.Value.DependsOn.Remove(j);
+                }
+            }
+        }
+        public bool DoesIDependsOnJ(int i, int j, Dictionary<int, Operation> operations, ScheduleSolution solution)
+        {
+            double F = (_operations[j].StartTime > _operations[i].StartTime) ? 2 : _operations[j].StartTime == _operations[i].StartTime ? 1 : 0.5;
+            double pheij = _pheromones[(i, j)];
+            double pheji = _pheromones[(j, i)];
+            _probabilities[(i, j)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha))
+                / (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha)
+                + Math.Pow(1 / F, _beta) * Math.Pow(pheji, _alpha));
+            if (_rnd.NextDouble() <= _probabilities[(i, j)])
+            {
+                solution.W[(i, j)] = 1;
+                operations[j].DependsOn.Add(i);
+                return true;
+            }
+            else
+            {
+                solution.W[(i, j)] = 0;
+                solution.W[(j, i)] = 1;
+                operations[i].DependsOn.Add(j);
+                return false;
+            }
+
+        }
         public void UpdatePheromones()
         {
             foreach(var ops in BestSolution.W.Keys)

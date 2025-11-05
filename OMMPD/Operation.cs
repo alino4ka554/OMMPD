@@ -18,11 +18,32 @@ namespace OMMPD
         public double CrashCost { get; set; }
         public double StartTime { get; set; }
         public double Acceleration { get; set; }
+        public bool IsRunning { get; set; }
+        public int Priority = 1;  
 
         public double ActualTime => Math.Max(NormalTime - Acceleration, CrashTime);
         public double ActualCost => NormalCost + Delta * Acceleration;
         public double Delta => (CrashCost - NormalCost) / (NormalTime - CrashTime);
+        public bool Is = false;
 
         public double EndTime => StartTime + ActualTime;
+        public Operation Clone()
+        {
+            return new Operation
+            {
+                Id = this.Id,
+                Project = this.Project,
+                Resource = this.Resource,
+                NormalTime = this.NormalTime,
+                CrashTime = this.CrashTime,
+                NormalCost = this.NormalCost,
+                CrashCost = this.CrashCost,
+                Priority = this.Priority,
+                Acceleration = this.Acceleration,
+                StartTime = this.StartTime,
+                DependsOn = new List<int>(this.DependsOn)
+            };
+        }
+
     }
 }

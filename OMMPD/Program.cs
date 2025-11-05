@@ -56,7 +56,7 @@ colony.Run();
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 0; worksheetIndex < 1; worksheetIndex++)
+            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;
