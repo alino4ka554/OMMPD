@@ -17,18 +17,21 @@ namespace OMMPD
         private double _tauMin;
         private double _tauMax;
 
-
+        private bool flag = false;
         private Dictionary<int, Operation> _operations = new Dictionary<int, Operation>();
+        private List<Operation> _listOfOperations = new List<Operation>();
         public Dictionary<(int, int), double> _pheromones = new Dictionary<(int, int), double>();
         public Dictionary<(int, int), double> _probabilities = new Dictionary<(int, int), double>();
         public ScheduleSolution BestSolution;
         private Random _rnd = new Random();
         private Dictionary<int, List<Operation>> _resourcesOperations;
-        public AntColony(Dictionary<int, Operation> operations, int iterations, int ants,
+        private ScheduleSolution oldBest;
+        public AntColony(List <Operation> operations, int iterations, int ants,
                          double beta, double alpha, double rho,
                          double tauMin, double tauMax)
         {
-            _operations = operations;
+            _operations = operations.ToDictionary(op => op.Id);
+            _listOfOperations = operations;
             _iterations = iterations;
             _ants = ants;
             _beta = beta;
@@ -75,14 +78,19 @@ namespace OMMPD
 
         public void Run()
         {
-            for(int i = 0; i < _iterations; i++)
+            CalculateFirstBeginTime();
+            ScheduleSolution oldSolution = null;
+            for (int i = 0; i < _iterations; i++)
             {
-                for(int j = 0; j < _ants; j++)
+                oldBest = null;
+                for (int j = 0; j < _ants; j++)
                 {
                     var solution = BuildSolution();
                     CalculateBegin(solution);
                     CalculateTotalTime(solution);
                     UpdateBest(solution);
+                    if(oldBest == null || oldBest.TotalTime > solution.TotalTime) 
+                        oldBest = solution;
                     /*var solution = SetPriority();
                     CalculateStartTime(solution.Operations);
                     if (solution.Operations.Values == null)
@@ -91,10 +99,22 @@ namespace OMMPD
                     UpdateBest(solution);*/
                     //Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
                 }
+                if (oldSolution == null || oldSolution.TotalTime != BestSolution.TotalTime)
+                    flag = true;
+                oldSolution = BestSolution;
                 UpdatePheromones();
 
                 Console.WriteLine($"Итерация {i}: лучшее время = {BestSolution.TotalTime}");
             }
+        }
+        public void CalculateFirstBeginTime()
+        {
+            var operationsCopy = _listOfOperations
+                .Select(op => (Operation)op.Clone())
+                .ToList();
+            var operations = operationsCopy.ToDictionary(op => op.Id);
+            ScheduleSolution solution = new ScheduleSolution(operations, _pheromones);
+            CalculateBegin(solution);
         }
 
         public void CalculateBegin(ScheduleSolution solution)
@@ -167,10 +187,11 @@ namespace OMMPD
         }
         public ScheduleSolution BuildSolution()
         {
-            var operations = _operations.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.Clone()
-            );
+            var operationsCopy = _listOfOperations
+                .Select(op => (Operation)op.Clone())
+                .ToList();
+            var bestOperations = _operations;
+            var operations = operationsCopy.ToDictionary(op => op.Id);
             ScheduleSolution solution = new ScheduleSolution(operations, _pheromones);
             foreach(var phe in _pheromones.Keys)
             {
@@ -193,11 +214,13 @@ namespace OMMPD
                         solution.W[(phe.Item2, phe.Item1)] = 1;
                         operations[phe.Item1].DependsOn.Add(phe.Item2);
                     }
+                    CalculateBegin(solution);
                 }
             }
             solution.Operations = operations;
             return solution;
         }
+
         private void CalculateBeginTime(List<Operation> operations)
         {
             // Сбрасываем времена
@@ -301,11 +324,11 @@ namespace OMMPD
             }
             solution.TotalTime = totalTime;
         }
-        public ScheduleSolution SetPriority()
+        /*public ScheduleSolution SetPriority()
         {
             var operations = _operations.ToDictionary(
                 kvp => kvp.Key,
-                kvp => kvp.Value.Clone()
+                kvp => (Operation)kvp.Value.Clone()
             );
             ScheduleSolution solution = new ScheduleSolution(operations, _pheromones);
             foreach(var op in operations)
@@ -340,7 +363,7 @@ namespace OMMPD
                 }
             }
             return solution;
-        }
+        }*/
         public void CalculateStartTime(Dictionary<int, Operation> operations)
         {
             foreach (var op in operations.Values)

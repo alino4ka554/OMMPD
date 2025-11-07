@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OMMPD
 {
-    public class Operation
+    public class Operation : ICloneable
     {
         public int Id { get; set; }
         public List<int> DependsOn { get; set; } = new List<int>();
@@ -27,7 +27,7 @@ namespace OMMPD
         public bool Is = false;
 
         public double EndTime => StartTime + ActualTime;
-        public Operation Clone()
+        public object Clone()
         {
             return new Operation
             {
@@ -40,7 +40,7 @@ namespace OMMPD
                 CrashCost = this.CrashCost,
                 Priority = this.Priority,
                 Acceleration = this.Acceleration,
-                StartTime = this.StartTime,
+                StartTime = 0,
                 DependsOn = new List<int>(this.DependsOn)
             };
         }
