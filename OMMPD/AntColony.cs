@@ -55,6 +55,23 @@ namespace OMMPD
                 }
             }
         }
+        public Graph ConvertToGraph(ScheduleSolution solution)
+        {
+            var operations = solution.Operations;
+            Graph graph = new Graph();
+            foreach(var op in operations.Values)
+            {
+                if(op.DependsOn.Count != 0)
+                {
+                    foreach(var dep in op.DependsOn)
+                    {
+                        graph.AddEdge(dep, op.Id);
+                    }
+                }
+            }
+            //graph.PrintGraph();
+            return graph;
+        }
 
         public void Run()
         {
@@ -62,17 +79,50 @@ namespace OMMPD
             {
                 for(int j = 0; j < _ants; j++)
                 {
-                    var solution = SetPriority();
+                    var solution = BuildSolution();
+                    CalculateBegin(solution);
+                    CalculateTotalTime(solution);
+                    UpdateBest(solution);
+                    /*var solution = SetPriority();
                     CalculateStartTime(solution.Operations);
                     if (solution.Operations.Values == null)
                         break;
                     CalculateTotalTime(solution);
-                    UpdateBest(solution);
-                    Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
+                    UpdateBest(solution);*/
+                    //Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
                 }
                 UpdatePheromones();
 
                 Console.WriteLine($"Итерация {i}: лучшее время = {BestSolution.TotalTime}");
+            }
+        }
+
+        public void CalculateBegin(ScheduleSolution solution)
+        {
+            Graph graph = ConvertToGraph(solution);
+            var topologicalOperations = graph.TopologicalSort();
+            var operations = solution.Operations;
+            foreach(var op in topologicalOperations)
+            {
+                var operation = operations[op];
+                if (operation.DependsOn.Count == 0)
+                {
+                    operation.StartTime = 0;
+                    _operations[op].StartTime = operation.StartTime;
+                }
+                else
+                {
+                    double beginTime = 0;
+                    foreach(var dep in  operation.DependsOn)
+                    {
+                        var timePred = operations[dep].StartTime + operations[dep].NormalTime;
+                        if(timePred > beginTime)
+                            beginTime = timePred;
+                    }
+                    operation.StartTime = beginTime;
+                    _operations[op].StartTime = operation.StartTime;
+                }
+                //Console.WriteLine($"Operation #{op}, begintime = {operations[op].StartTime}");
             }
         }
 
@@ -117,12 +167,21 @@ namespace OMMPD
         }
         public ScheduleSolution BuildSolution()
         {
-            ScheduleSolution solution = new ScheduleSolution(_operations, _pheromones);
-            Dictionary<int, Operation> operations = new Dictionary<int, Operation>(_operations);
+            var operations = _operations.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Clone()
+            );
+            ScheduleSolution solution = new ScheduleSolution(operations, _pheromones);
             foreach(var phe in _pheromones.Keys)
             {
                 if (!operations[phe.Item1].DependsOn.Contains(phe.Item2) && !operations[(phe.Item2)].DependsOn.Contains(phe.Item1))
                 {
+                    double F = (_operations[phe.Item2].StartTime > _operations[phe.Item1].StartTime) ? 2 : _operations[phe.Item2].StartTime == _operations[phe.Item1].StartTime ? 1 : 0.5;
+                    double pheij = _pheromones[(_operations[phe.Item1].Id, _operations[phe.Item2].Id)];
+                    double pheji = _pheromones[(_operations[phe.Item2].Id, _operations[phe.Item1].Id)];
+                    _probabilities[phe] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha))
+                        / (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha)
+                        + Math.Pow(1 / F, _beta) * Math.Pow(pheji, _alpha));
                     if (_rnd.NextDouble() <= _probabilities[(phe)])
                     {
                         solution.W[(phe)] = 1;
@@ -217,24 +276,17 @@ namespace OMMPD
                 }
             }
         }
-
         public void CalculateProbability()
         {
             var operations = (BestSolution == null) ? _operations : BestSolution.Operations;
-            foreach (var i in operations.Values)
+            foreach (var phe in _pheromones.Keys)
             {
-                foreach (var j in operations.Values)
-                {
-                    if (i.Resource == j.Resource && i != j)
-                    {
-                        double F = (j.StartTime > i.StartTime) ? 2 : j.StartTime == i.StartTime ? 1 : 0.5;
-                        double pheij = _pheromones[(i.Id, j.Id)];
-                        double pheji = _pheromones[(j.Id, i.Id)];
-                        _probabilities[(i.Id, j.Id)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha)) 
-                            / (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha) 
-                            + Math.Pow(1 / F, _beta) * Math.Pow(pheji, _alpha));
-                    }
-                }
+                double F = (operations[phe.Item2].StartTime > operations[phe.Item1].StartTime) ? 2 : operations[phe.Item2].StartTime == operations[phe.Item1].StartTime ? 1 : 0.5;
+                double pheij = _pheromones[(operations[phe.Item1].Id, operations[phe.Item2].Id)];
+                double pheji = _pheromones[(operations[phe.Item2].Id, operations[phe.Item1].Id)];
+                _probabilities[phe] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha))
+                    / (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha)
+                    + Math.Pow(1 / F, _beta) * Math.Pow(pheji, _alpha));
             }
         }
         
@@ -263,20 +315,27 @@ namespace OMMPD
                     int flag = op.Value.Priority;
                     foreach(var j in op.Value.DependsOn)
                     {
-                        if (operations[j].Priority > flag)
+                        if (operations[j].Priority >= flag)
                             flag += operations[j].Priority;
                     }
+                    op.Value.Priority = flag;
                 }
                 foreach (var phe in _pheromones)
                 {
                     if (phe.Key.Item2 == op.Key)
                     {
                         var i = phe.Key.Item1;
-                        var Wij = DoesIDependsOnJ(i, op.Key, operations, solution);
-                        if (!Wij)
-                            operations[i].Priority += op.Value.Priority;
-                        else if (operations[i].Priority > op.Value.Priority)
+                        //if (!operations[i].DependsOn.Contains(op.Key) && !op.Value.DependsOn.Contains(i))
+                        {
+                            var Wij = DoesIDependsOnJ(i, op.Key, operations, solution);
+                            if (!Wij)
+                            {
+                                if (op.Value.Priority >= operations[i].Priority)
+                                    operations[i].Priority += op.Value.Priority;
+                            }
+                            else if (operations[i].Priority >= op.Value.Priority)
                                 op.Value.Priority += operations[i].Priority;
+                        }
                     }
                 }
             }
