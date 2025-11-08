@@ -18,7 +18,7 @@ namespace OMMPD
             string filePath = "operations.xlsx";
 
             var ops = LoadOperationsFromExcel(filePath);
-
+            Stopwatch sw = new Stopwatch();
             var operations = ops.ToDictionary(op => op.Id);
 
             /*var parameters = new AntColonyParameters
@@ -31,13 +31,18 @@ namespace OMMPD
                 MinPheromone = 0.01,
                 EvaporationRate = 0.1
             };*/
-            var colony = new AntColony(ops, iterations: 100, ants: 1,
+            var colony = new AntColony(ops, iterations: 200, ants: 200,
                                        beta: 5, alpha: 1.2, rho: 0.3,
                                        tauMin: 0.01, tauMax: 1.0);
+            sw.Start();
             colony.Run();
+            sw.Stop();
+            double elapsedSeconds = sw.Elapsed.TotalSeconds;
 
-                Console.WriteLine("\n=== РЕЗУЛЬТАТЫ ===");
-                Console.WriteLine($"Total time = {colony.BestSolution.TotalTime}");
+
+            Console.WriteLine("\n=== РЕЗУЛЬТАТЫ ===");
+            Console.WriteLine($"Total time = {colony.BestSolution.TotalTime}");
+            Console.WriteLine($"Время выполнения программы: {elapsedSeconds:F3} сек.");
             /*try
             {
                 
@@ -56,7 +61,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 4; worksheetIndex < 5; worksheetIndex++)
+            for (int worksheetIndex = 5; worksheetIndex < 6; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;
@@ -80,6 +85,7 @@ namespace OMMPD
                         Id = int.TryParse(worksheet.Cells[i, 0].Value?.ToString(), out var idVal) ? idVal : 0,
                         DependsOn = preds,
                         Resource = int.TryParse(worksheet.Cells[i, 3].Value?.ToString(), out var resVal) ? resVal : 0,
+                        Project = int.TryParse(worksheet.Cells[i, 2].Value?.ToString(), out var prVal) ? prVal : 0,
                         NormalTime = double.TryParse(worksheet.Cells[i, 4].Value?.ToString(), out var ntVal) ? ntVal : 0,
 
                     };

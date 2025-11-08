@@ -47,11 +47,14 @@ namespace OMMPD
 
         public void InitPheromones()
         {
+            int b;
             foreach(var i in _operations.Values)
             {
                 foreach(var j in _operations.Values)
                 {
-                    if((i != j) && i.Resource == j.Resource && !i.DependsOn.Contains(j.Id) && !j.DependsOn.Contains(i.Id))
+                    if (i.Id == 2 && j.Id == 6)
+                        b = 0;
+                    if((i != j) && i.Resource == j.Resource && !i.DependsOn.Contains(j.Id) && !j.DependsOn.Contains(i.Id) && (i.Project != j.Project))
                     {
                         _pheromones.Add((i.Id, j.Id), _tauMax);
                     }
@@ -85,22 +88,24 @@ namespace OMMPD
                 oldBest = null;
                 for (int j = 0; j < _ants; j++)
                 {
-                    var solution = BuildSolution();
+                    /*var solution = BuildSolution();
                     CalculateBegin(solution);
                     CalculateTotalTime(solution);
                     UpdateBest(solution);
                     if(oldBest == null || oldBest.TotalTime > solution.TotalTime) 
-                        oldBest = solution;
-                    /*var solution = SetPriority();
+                        oldBest = solution;*/
+                    var solution = SetPriority();
                     CalculateStartTime(solution.Operations);
                     if (solution.Operations.Values == null)
                         break;
                     CalculateTotalTime(solution);
-                    UpdateBest(solution);*/
+                    UpdateBest(solution);
                     //Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
                 }
                 if (oldSolution == null || oldSolution.TotalTime != BestSolution.TotalTime)
                     flag = true;
+                else 
+                    flag = false;
                 oldSolution = BestSolution;
                 UpdatePheromones();
 
@@ -324,7 +329,7 @@ namespace OMMPD
             }
             solution.TotalTime = totalTime;
         }
-        /*public ScheduleSolution SetPriority()
+        public ScheduleSolution SetPriority()
         {
             var operations = _operations.ToDictionary(
                 kvp => kvp.Key,
@@ -341,29 +346,29 @@ namespace OMMPD
                         if (operations[j].Priority >= flag)
                             flag += operations[j].Priority;
                     }
-                    op.Value.Priority = flag;
+                    //op.Value.Priority = flag;
                 }
                 foreach (var phe in _pheromones)
                 {
                     if (phe.Key.Item2 == op.Key)
                     {
                         var i = phe.Key.Item1;
-                        //if (!operations[i].DependsOn.Contains(op.Key) && !op.Value.DependsOn.Contains(i))
+                        if (!operations[i].DependsOn.Contains(op.Key) && !op.Value.DependsOn.Contains(i))
                         {
                             var Wij = DoesIDependsOnJ(i, op.Key, operations, solution);
                             if (!Wij)
                             {
                                 if (op.Value.Priority >= operations[i].Priority)
-                                    operations[i].Priority += op.Value.Priority;
+                                    operations[i].Priority = Math.Max(operations[i].Priority, op.Value.Priority + 1);
                             }
                             else if (operations[i].Priority >= op.Value.Priority)
-                                op.Value.Priority += operations[i].Priority;
+                                op.Value.Priority = Math.Max(op.Value.Priority, 1 + operations[i].Priority);
                         }
                     }
                 }
             }
             return solution;
-        }*/
+        }
         public void CalculateStartTime(Dictionary<int, Operation> operations)
         {
             foreach (var op in operations.Values)
