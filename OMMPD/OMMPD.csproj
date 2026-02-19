@@ -47,6 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AntColony.cs" />
+    <Compile Include="AntColonyAcocs.cs" />
     <Compile Include="CriticalWay.cs" />
     <Compile Include="Graph.cs" />
     <Compile Include="Operation.cs" />

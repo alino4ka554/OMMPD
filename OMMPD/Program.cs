@@ -18,6 +18,7 @@ namespace OMMPD
             string filePath = "operations.xlsx";
 
             var ops = LoadOperationsFromExcel(filePath);
+
             Stopwatch sw = new Stopwatch();
             var operations = ops.ToDictionary(op => op.Id);
 
@@ -31,8 +32,8 @@ namespace OMMPD
                 MinPheromone = 0.01,
                 EvaporationRate = 0.1
             };*/
-            var colony = new AntColony(ops, iterations: 200, ants: 200,
-                                       beta: 5, alpha: 1.2, rho: 0.3,
+            var colony = new AntColony(ops, iterations: 10, ants: 50,
+                                       beta: 5, alpha: 1.2, rho: 2.3,
                                        tauMin: 0.01, tauMax: 1.0);
             sw.Start();
             colony.Run();
@@ -61,7 +62,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 5; worksheetIndex < 6; worksheetIndex++)
+            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;
