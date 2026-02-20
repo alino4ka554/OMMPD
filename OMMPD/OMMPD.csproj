@@ -46,6 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ACO.cs" />
     <Compile Include="AntColony.cs" />
     <Compile Include="AntColonyAcocs.cs" />
     <Compile Include="CriticalWay.cs" />
