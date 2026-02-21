@@ -18,12 +18,14 @@ namespace OMMPD
         private Dictionary<int, Operation> _operations = new Dictionary<int, Operation>();
         private Dictionary<int, Operation> ops = new Dictionary<int, Operation>();
         public Dictionary<(int, int), double> _pheromones = new Dictionary<(int, int), double>();
+        public Dictionary<(int, int), double> _probabilities = new Dictionary<(int, int), double>();
         public ScheduleSolution BestSolution;
         private Random _rnd = new Random();
         private Dictionary<int, List<int>> _resourcesOperations = new Dictionary<int, List<int>>();
         private Dictionary<int, List<int>> _projectsOperations = new Dictionary<int, List<int>>();
         private Dictionary<int, Dictionary<int, List<int>>> _opsWithOneResInOneProj = new Dictionary<int, Dictionary<int, List<int>>>();
         private ScheduleSolution oldBest;
+        public double GetRandomChoice() => _rnd.NextDouble();
 
         public ACO(List<Operation> operations, int iterations, int ants,
                          double beta, double alpha, double rho,
@@ -39,10 +41,34 @@ namespace OMMPD
             _tauMin = tauMin;
             _tauMax = tauMax;
             OpsToProjects();
-            //OpsToResources();
-            //InitPheromones();
+            OpsToResources();
+            InitPheromones();
             //CalculateBeginTime(operations);
         }
+        public void InitPheromones()
+        {
+            int b;
+            foreach (var i in _operations.Values)
+            {
+                foreach (var j in _operations.Values)
+                {
+                    if (i.Id == 2 && j.Id == 6)
+                        b = 0;
+                    if ((i != j) && i.Resource == j.Resource)
+                    {
+                            _pheromones.Add((i.Id, j.Id), _tauMax);
+                    }
+                }
+            }
+        }
+        //private void InitAnts(int ants)
+        //{
+        //    for(int i = 0; i <= _operations.Count; i++)
+        //    {
+        //        if (i <= ants)
+        //            _ants.Add(i + 1, i);
+        //    }
+        //}
         public void OpsToProjects()
         {
             foreach(var op in _operations.Values)
@@ -52,6 +78,7 @@ namespace OMMPD
                 _projectsOperations[op.Project].Add(op.Id);
             }
         }
+
         public void SortingForProjects()
         {
             List<int> depends = new List<int>();
@@ -98,25 +125,180 @@ namespace OMMPD
         }
         public ScheduleSolution BuildSollution()
         {
-            ScheduleSolution solution = new ScheduleSolution(_operations, _pheromones);
+            var operationsCopy = _operations.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (Operation)kvp.Value.CloneOriginal());
+            ScheduleSolution solution = new ScheduleSolution(operationsCopy, _pheromones);
             foreach(var res in  _resourcesOperations)
             {
-                var operationsByResource = res.Value;
-                while(operationsByResource.Any())
+                var operationsByResource = new List<int>(res.Value);
+                var currentOp = operationsByResource[(int)(GetRandomChoice() * operationsByResource.Count)];
+                operationsByResource.Remove(currentOp);
+                List<int> visited = new List<int>();
+                visited.Add(currentOp);
+                while (operationsByResource.Any())
                 {
-
+                    var nextOp = CalculateNextOperation(currentOp, operationsByResource, operationsCopy);
+                    
+                    var beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
+                    if (operationsCopy[currentOp].Project != operationsCopy[nextOp].Project)
+                    {
+                        if (operationsCopy[currentOp].StartTime < beginTime)
+                        {
+                            operationsCopy[nextOp].StartTime = beginTime;
+                            CalculateProjectsTimes(operationsCopy[currentOp].Project, operationsCopy);
+                        }
+                        solution.W[(currentOp, nextOp)] = 1;
+                        currentOp = nextOp;
+                        operationsByResource.Remove(nextOp);
+                        visited.Add(nextOp);
+                    }
+                    else
+                    {
+                        var currentOpsInOneProject = _opsWithOneResInOneProj[res.Key][operationsCopy[currentOp].Project];
+                        if (currentOpsInOneProject.IndexOf(currentOp) < currentOpsInOneProject.IndexOf(nextOp))
+                        {
+                            if (operationsCopy[currentOp].StartTime < beginTime)
+                            {
+                                operationsCopy[nextOp].StartTime = beginTime;
+                                CalculateProjectsTimes(operationsCopy[currentOp].Project, operationsCopy);
+                            }
+                            solution.W[(currentOp, nextOp)] = 1;
+                            currentOp = nextOp;
+                            operationsByResource.Remove(nextOp);
+                            visited.Add(nextOp);
+                        }
+                        else
+                        {
+                            visited.Remove(currentOp);
+                            operationsByResource.Add(currentOp);
+                            if(visited.Count != 0)
+                                solution.W[(visited.Last(), currentOp)] = 0;
+                            currentOp = operationsByResource.Last();
+                            beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
+                            if (operationsCopy[currentOp].StartTime < beginTime)
+                            {
+                                operationsCopy[nextOp].StartTime = beginTime;
+                                CalculateProjectsTimes(operationsCopy[currentOp].Project, operationsCopy);
+                            }
+                            solution.W[(currentOp, nextOp)] = 1;
+                            currentOp = nextOp;
+                            operationsByResource.Remove(nextOp);
+                            visited.Add(nextOp);
+                        }
+                    }
                 }
             }
+            return solution;
         }
-        public void CalculateNextOperation(List<int> operations)
+
+        public int CalculateNextOperation(int currentOp, List<int> operations, Dictionary<int, Operation> currentOperations)
         {
             Dictionary<int, double> probabilities = new Dictionary<int, double>();
             double sum = operations.Sum(op => _operations[op].StartTime);
+            double summary = 0;
             foreach(var operation in operations)
             {
-                double F = (_operations[].StartTime > operationsCopy[pred].StartTime) ? 2 : operationsCopy[after].StartTime == operationsCopy[pred].StartTime ? 1 : 0.5;
-                double pheij = _pheromones[(pred, after)];
-                double pheji = _pheromones[(after, pred)];
+                double F = 1 / currentOperations[operation].NormalTime;
+                double pheij = _pheromones[(currentOp, operation)];
+                _probabilities[(currentOp, operation)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha));
+                summary += _probabilities[(currentOp, operation)];
+            }
+            var randomValue = GetRandomChoice();
+            double cumulative = 0;
+            foreach (var probability in probabilities)
+            {
+                cumulative += probability.Value / summary;
+                if (randomValue <= cumulative)
+                    return probability.Key;
+            }
+            return operations.Last();
+        }
+        public void CalculateProjectsTimes(int projectId, Dictionary<int, Operation> operations)
+        {
+            var pred = _projectsOperations[projectId][0];
+            foreach (var op in _projectsOperations[projectId])
+            {
+                if (op != pred)
+                {
+                    var beginTime = operations[pred].StartTime + operations[pred].ActualTime;
+                    if (operations[op].StartTime < beginTime)
+                        operations[pred].StartTime = beginTime;
+                    pred = op;
+                }
+            }
+        }
+        public void Run()
+        {
+            CalculateFirstStartTimes();
+            OrderingOneResInOneProj();
+            for(int i = 0; i <= _iterations; i++)
+            {
+                for(int j = 0; j <= _ants; j++)
+                {
+                    var solution = BuildSollution();
+                    CalculateEndTime(solution);
+                    UpdateBest(solution);
+                    Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
+                }
+                UpdatePheromones();
+
+                Console.WriteLine($"Итерация {i}: лучшее время = {BestSolution.TotalTime}");
+            }
+        }
+        public void CalculateEndTime(ScheduleSolution scheduleSolution)
+        {
+            var operations = scheduleSolution.Operations;
+            var projectMaxEndTime = 0.0;
+            foreach (var project in _projectsOperations)
+            {
+
+                foreach (var op in project.Value)
+                {
+                    var end = operations[op].StartTime + operations[op].ActualTime;
+                    if (projectMaxEndTime < end)
+                        projectMaxEndTime = end;
+                }
+            }
+            scheduleSolution.TotalTime = projectMaxEndTime;
+        }
+        public void CalculateFirstStartTimes()
+        {
+            foreach (var project in _projectsOperations)
+            {
+                foreach (var op in project.Value)
+                {
+                    if (_operations[op].DependsOn.Count == 0)
+                        _operations[op].StartTime = 0;
+                    else
+                    {
+                        var flag = 0.0;
+                        foreach (var pred in _operations[op].DependsOn)
+                        {
+                            if (_operations[pred].StartTime + _operations[pred].ActualTime > flag)
+                                flag = _operations[pred].StartTime + _operations[pred].ActualTime;
+                        }
+                        _operations[op].StartTime = flag;
+                    }
+                }
+            }
+        }
+        private void UpdateBest(ScheduleSolution solution)
+        {
+            if (BestSolution == null || solution.TotalTime < BestSolution.TotalTime)
+            {
+                BestSolution = solution;
+            }
+        }
+        public void UpdatePheromones()
+        {
+            foreach (var ops in BestSolution.W.Keys)
+            {
+                _pheromones[ops] = Math.Max(_pheromones[ops] * (1 - _rho), _tauMin);
+                if (BestSolution.W[(ops)] == 1)
+                {
+                    _pheromones[ops] = Math.Min((_tauMax - _tauMin) * _rho + _pheromones[ops], _tauMax);
+                }
             }
         }
     }
