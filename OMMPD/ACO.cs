@@ -143,10 +143,10 @@ namespace OMMPD
                     var beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
                     if (operationsCopy[currentOp].Project != operationsCopy[nextOp].Project)
                     {
-                        if (operationsCopy[currentOp].StartTime < beginTime)
+                        if (operationsCopy[nextOp].StartTime < beginTime)
                         {
                             operationsCopy[nextOp].StartTime = beginTime;
-                            CalculateProjectsTimes(operationsCopy[currentOp].Project, operationsCopy);
+                            CalculateProjectsTimes(operationsCopy[nextOp].Project, operationsCopy);
                         }
                         solution.W[(currentOp, nextOp)] = 1;
                         currentOp = nextOp;
@@ -158,10 +158,10 @@ namespace OMMPD
                         var currentOpsInOneProject = _opsWithOneResInOneProj[res.Key][operationsCopy[currentOp].Project];
                         if (currentOpsInOneProject.IndexOf(currentOp) < currentOpsInOneProject.IndexOf(nextOp))
                         {
-                            if (operationsCopy[currentOp].StartTime < beginTime)
+                            if (operationsCopy[nextOp].StartTime < beginTime)
                             {
                                 operationsCopy[nextOp].StartTime = beginTime;
-                                CalculateProjectsTimes(operationsCopy[currentOp].Project, operationsCopy);
+                                CalculateProjectsTimes(operationsCopy[nextOp].Project, operationsCopy);
                             }
                             solution.W[(currentOp, nextOp)] = 1;
                             currentOp = nextOp;
@@ -172,14 +172,22 @@ namespace OMMPD
                         {
                             visited.Remove(currentOp);
                             operationsByResource.Add(currentOp);
-                            if(visited.Count != 0)
+                            if (visited.Count != 0)
+                            {
                                 solution.W[(visited.Last(), currentOp)] = 0;
-                            currentOp = operationsByResource.Last();
+                                currentOp = visited.Last();
+                            }
+                            else
+                            {
+                                currentOp = nextOp;
+                                nextOp = operationsByResource.Last();
+                            }
+                            visited.Add(currentOp);
                             beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
-                            if (operationsCopy[currentOp].StartTime < beginTime)
+                            if (operationsCopy[nextOp].StartTime < beginTime)
                             {
                                 operationsCopy[nextOp].StartTime = beginTime;
-                                CalculateProjectsTimes(operationsCopy[currentOp].Project, operationsCopy);
+                                CalculateProjectsTimes(operationsCopy[nextOp].Project, operationsCopy);
                             }
                             solution.W[(currentOp, nextOp)] = 1;
                             currentOp = nextOp;
@@ -195,13 +203,14 @@ namespace OMMPD
         public int CalculateNextOperation(int currentOp, List<int> operations, Dictionary<int, Operation> currentOperations)
         {
             Dictionary<int, double> probabilities = new Dictionary<int, double>();
-            double sum = operations.Sum(op => _operations[op].StartTime);
+           // double sum = operations.Sum(op => _operations[op].StartTime);
             double summary = 0;
             foreach(var operation in operations)
             {
-                double F = 1 / currentOperations[operation].NormalTime;
+                double F = 1 / currentOperations[operation].StartTime ;
                 double pheij = _pheromones[(currentOp, operation)];
                 _probabilities[(currentOp, operation)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha));
+                probabilities[operation] = _probabilities[(currentOp, operation)];
                 summary += _probabilities[(currentOp, operation)];
             }
             var randomValue = GetRandomChoice();
@@ -223,7 +232,7 @@ namespace OMMPD
                 {
                     var beginTime = operations[pred].StartTime + operations[pred].ActualTime;
                     if (operations[op].StartTime < beginTime)
-                        operations[pred].StartTime = beginTime;
+                        operations[op].StartTime = beginTime;
                     pred = op;
                 }
             }

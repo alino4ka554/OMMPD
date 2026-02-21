@@ -32,7 +32,7 @@ namespace OMMPD
                 MinPheromone = 0.01,
                 EvaporationRate = 0.1
             };*/
-            var colony = new ACO(ops, iterations: 150, ants: 250,
+            var colony = new ACO(ops, iterations: 100, ants: 300,
                                        beta: 5, alpha: 1.2, rho: 2.3,
                                        tauMin: 0.01, tauMax: 1.0);
             sw.Start();
