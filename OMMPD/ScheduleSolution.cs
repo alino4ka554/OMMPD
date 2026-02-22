@@ -14,6 +14,8 @@ namespace OMMPD
         public Dictionary<int, int> Resources { get; set; } = new Dictionary<int, int>();
         public double TotalTime { get; set; }
         public double TotalCost { get; set; }
+
+        public Dictionary<int, int> CounterOfOperations { get; set; } = new Dictionary<int, int>();
         public Dictionary<int, List<int>> ResourceSequences { get; set; } = new Dictionary<int, List<int>>();
         public Dictionary<(int, int), int> W { get; set; } = new Dictionary<(int, int), int>();
 
@@ -24,6 +26,8 @@ namespace OMMPD
             {
                 W.Add((phe), 0);
             }
+            foreach (var op in Operations)
+                CounterOfOperations.Add(op.Key, 0);
         }
         
         public void ConstraintForBeginTime(int OpId)
