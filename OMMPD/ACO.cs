@@ -16,6 +16,7 @@ namespace OMMPD
         private double _tauMin;
         private double _tauMax;
         private double _Q;
+        private Dictionary<int, List<int>> _probableWay = new Dictionary<int, List<int>>();
         private Dictionary<int, Operation> _operations = new Dictionary<int, Operation>();
         private Dictionary<int, Operation> ops = new Dictionary<int, Operation>();
         public Dictionary<(int, int), double> _pheromones = new Dictionary<(int, int), double>();
@@ -46,6 +47,8 @@ namespace OMMPD
             OpsToProjects();
             OpsToResources();
             InitPheromones();
+            OrderingOneResInOneProj();
+            ConvertToGraph();
             //CalculateBeginTime(operations);
         }
         private double CalculateQ(List<Operation> operations)
@@ -144,7 +147,7 @@ namespace OMMPD
             }
         }
 
-        public ScheduleSolution BuildSollution()
+        public ScheduleSolution BuildSolution()
         {
             var operationsCopy = _operations.ToDictionary(
                 kvp => kvp.Key,
@@ -179,42 +182,7 @@ namespace OMMPD
                     var nextOpsInOneProject = opsWithOneProj[_operations[nextOp].Project];
                     if (nextOpsInOneProject.Count == 0 || nextOpsInOneProject.IndexOf(nextOp) == 0)
                         AddOperationToVisited(ref currentOp, ref nextOp, operationsCopy, visited, solution, operationsByResource);
-                    /*if (operationsCopy[currentOp].Project != operationsCopy[nextOp].Project)
-                    {
-                        AddOperationToVisited(ref currentOp, ref nextOp, operationsCopy, visited, solution, operationsByResource);
-                    }*/
-                    /*else if(currentOpsInOneProject.Count != 0 && currentOpsInOneProject.IndexOf(currentOp) != 0)
-                    {
-                        visited.Remove(currentOp);
-                        operationsByResource.Add(currentOp);
-                        //operationsCopy[currentOp].StartTime = _operations[currentOp].StartTime;
-                        currentOp = currentOpsInOneProject.First();
-                        visited.Add(currentOp);
-                        operationsByResource.Remove(currentOp);
-                        continue;
-                        //var currentOpsInOneProject = _opsWithOneResInOneProj[res.Key][operationsCopy[currentOp].Project];
-                        /*if (currentOpsInOneProject.IndexOf(currentOp) < currentOpsInOneProject.IndexOf(nextOp))
-                        {
-                            AddOperationToVisited(ref currentOp, ref nextOp, operationsCopy, visited, solution, operationsByResource);
-                        }
-                        else
-                        {
-                            visited.Remove(currentOp);
-                            operationsByResource.Add(currentOp);
-                            if (visited.Count != 0)
-                            {
-                                solution.W[(visited.Last(), currentOp)] = 0;
-                                currentOp = visited.Last();
-                            }
-                            else
-                            {
-                                currentOp = nextOp;
-                                nextOp = operationsByResource.Last();
-                            }
-                            visited.Add(currentOp);
-                            AddOperationToVisited(ref currentOp, ref nextOp, operationsCopy, visited, solution, operationsByResource);
-                        }*/
-                    //}
+              
                     else if (nextOpsInOneProject.Count != 0 && nextOpsInOneProject.IndexOf(nextOp) != 0)
                     {
                         nextOp = nextOpsInOneProject.First();
@@ -227,6 +195,42 @@ namespace OMMPD
             }
             return solution;
         }
+        public void ConvertToGraph()
+        {
+            foreach(var op in _operations.Values)
+            {
+                if(op.DependsOn.Count != 0)
+                {
+                    foreach (var op2 in op.DependsOn)
+                    {
+                        if (!_probableWay.ContainsKey(op2))
+                            _probableWay.Add(op2, new List<int> ());
+                        _probableWay[op2].Add(op.Id);
+                    }
+                }
+                if (!_probableWay.ContainsKey(op.Id))
+                    _probableWay.Add(op.Id, new List<int>());
+                _probableWay[op.Id].AddRange(_resourcesOperations[op.Resource].Where(ops => ops != op.Id && IsAOps(op, ops)));
+            }
+        }
+        public bool IsAOps(Operation first, int second)
+        {
+            var _ops = _opsWithOneResInOneProj[first.Resource][first.Project];
+            if (!_ops.Contains(second))
+                return true;
+            else if (_ops.IndexOf(first.Id) < _ops.IndexOf(second))
+                return true;
+            return false;
+
+        }
+        /*public void BuildSolution2()
+        {
+            var operationsCopy = _operations.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (Operation)kvp.Value.CloneOriginal());
+            ScheduleSolution solution = new ScheduleSolution(operationsCopy, _pheromones);
+            foreach(var op )
+        }*/
         public void AddOperationToVisited(ref int currentOp, ref int nextOp, Dictionary<int, Operation> operationsCopy, List <int> visited, ScheduleSolution solution, List<int> operationsByResource)
         {
             var beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
@@ -284,12 +288,12 @@ namespace OMMPD
         public void Run()
         {
             CalculateFirstStartTimes();
-            OrderingOneResInOneProj();
+            
             for(int i = 0; i <= _iterations; i++)
             {
                 for(int j = 0; j <= _ants; j++)
                 {
-                    var solution = BuildSollution();
+                    var solution = BuildSolution();
                     CalculateEndTime(solution);
                     UpdateBest(solution);
                     LocalUpdatePheromones(solution);
