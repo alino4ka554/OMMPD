@@ -11,7 +11,7 @@ namespace OMMPD
     {
         public Dictionary<int, Operation> Operations { get; set; } = new Dictionary<int, Operation>();
         public Dictionary<int, int> Projiects { get; set; } = new Dictionary<int, int>();
-        public Dictionary<int, int> Resources { get; set; } = new Dictionary<int, int>();
+        public Dictionary<int, Resource> Resources { get; set; } = new Dictionary<int, Resource>();
         public double TotalTime { get; set; }
         public double TotalCost { get; set; }
 
@@ -28,8 +28,17 @@ namespace OMMPD
             }
             foreach (var op in Operations)
                 CounterOfOperations.Add(op.Key, 0);
+            //InitializeResource();
         }
-        
+        public void InitializeResource()
+        {
+            foreach (var op in Operations.Values)
+            {
+                if (!Resources.ContainsKey(op.Resource))
+                    Resources.Add(op.Resource, new Resource(op.Resource));
+                Resources[op.Resource].Operations.Add(op);
+            }
+        }
         public void ConstraintForBeginTime(int OpId)
         {
             foreach(var kvp in Operations)

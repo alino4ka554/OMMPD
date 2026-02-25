@@ -53,7 +53,9 @@
     <Compile Include="Graph.cs" />
     <Compile Include="Operation.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="Project.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Resource.cs" />
     <Compile Include="ScheduleSolution.cs" />
   </ItemGroup>
   <ItemGroup>

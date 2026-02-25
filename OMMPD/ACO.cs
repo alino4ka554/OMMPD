@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ namespace OMMPD
         private double _tauMax;
         private double _Q;
         private Dictionary<int, List<int>> _probableWay = new Dictionary<int, List<int>>();
+        private Dictionary<int, double> _resourceFree = new Dictionary<int, double>();
         private Dictionary<int, Operation> _operations = new Dictionary<int, Operation>();
         private Dictionary<int, Operation> ops = new Dictionary<int, Operation>();
         public Dictionary<(int, int), double> _pheromones = new Dictionary<(int, int), double>();
@@ -69,14 +71,13 @@ namespace OMMPD
         }
         public void InitPheromones()
         {
-            int b;
             foreach (var i in _operations.Values)
             {
                 foreach (var j in _operations.Values)
                 {
-                    if (i.Id == 2 && j.Id == 6)
-                        b = 0;
-                    if ((i != j) && i.Resource == j.Resource)
+                    
+                    //if ((i != j) && i.Resource == j.Resource)
+                    if(i != j)
                     {
                         _localPheromones.Add((i.Id, j.Id), 0);
                         _pheromones.Add((i.Id, j.Id), _tauMax);
@@ -131,6 +132,8 @@ namespace OMMPD
                 if(!_resourcesOperations.ContainsKey(op.Resource))
                     _resourcesOperations.Add(op.Resource, new List<int>());
                 _resourcesOperations[op.Resource].Add(op.Id);
+                if (!_resourceFree.ContainsKey(op.Resource))
+                    _resourceFree.Add(op.Resource, 0);
             }
         }
         public void OrderingOneResInOneProj()
@@ -210,7 +213,7 @@ namespace OMMPD
                 }
                 if (!_probableWay.ContainsKey(op.Id))
                     _probableWay.Add(op.Id, new List<int>());
-                _probableWay[op.Id].AddRange(_resourcesOperations[op.Resource].Where(ops => ops != op.Id && IsAOps(op, ops)));
+                _probableWay[op.Id].AddRange(_resourcesOperations[op.Resource].Where(ops => ops != op.Id && op.Project != _operations[ops].Project));
             }
         }
         public bool IsAOps(Operation first, int second)
@@ -223,14 +226,93 @@ namespace OMMPD
             return false;
 
         }
-        /*public void BuildSolution2()
+        public ScheduleSolution BuildSolution2()
         {
             var operationsCopy = _operations.ToDictionary(
                 kvp => kvp.Key,
                 kvp => (Operation)kvp.Value.CloneOriginal());
             ScheduleSolution solution = new ScheduleSolution(operationsCopy, _pheromones);
-            foreach(var op )
-        }*/
+            
+            var rnd = GetRandomChoice();
+            var currentOp = operationsCopy[(int)(rnd * operationsCopy.Count) + 1].Id;
+            var notVisitedOps = new List<int>(_operations.Keys);
+            notVisitedOps.Remove(currentOp);
+            while(notVisitedOps.Any())
+            {
+                var opsWithOneProj = new Dictionary<int, List<int>>();
+                foreach (var kvp in _opsWithOneResInOneProj[operationsCopy[currentOp].Resource])
+                {
+                    opsWithOneProj[kvp.Key] = new List<int>(kvp.Value);
+                }
+                var currentOpsInOneProject = new List<int>(opsWithOneProj[_operations[currentOp].Project]);
+                if (currentOpsInOneProject.Count != 0 && currentOpsInOneProject.IndexOf(currentOp) != 0 && notVisitedOps.Contains(currentOpsInOneProject[0]))
+                {
+                    notVisitedOps.Add(currentOp);
+                    //operationsCopy[currentOp].StartTime = _operations[currentOp].StartTime;
+                    currentOp = currentOpsInOneProject.First();
+                    notVisitedOps.Remove(currentOp);
+                }
+                opsWithOneProj[_operations[currentOp].Project].Remove(currentOp);
+                if (!solution.ResourceSequences.ContainsKey(_operations[currentOp].Resource))
+                    solution.ResourceSequences.Add(_operations[currentOp].Resource, new List<int>());
+                solution.ResourceSequences[_operations[currentOp].Resource].Add(currentOp);
+                var probablyOps = IsContainsOps(notVisitedOps, _probableWay[currentOp]);
+                if (probablyOps.Count > 0)
+                {
+                    var nextOp = CalculateNextOperation(currentOp, probablyOps, operationsCopy);
+                    var nextOpsInOneProject = new List<int>(opsWithOneProj[_operations[nextOp].Project]);
+                    if (nextOpsInOneProject.Count == 0 || nextOpsInOneProject.IndexOf(nextOp) == 0)
+                    {
+                        var beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
+                        if (operationsCopy[nextOp].StartTime < beginTime)
+                        {
+                            operationsCopy[nextOp].StartTime = beginTime;
+                            CalculateProjectsTimes(operationsCopy[nextOp].Project, operationsCopy, solution);
+                        }
+                        solution.W[(currentOp, nextOp)] = 1;
+                        currentOp = nextOp;
+                        notVisitedOps.Remove(nextOp);
+                        currentOp = nextOp;
+                    }
+
+                    else if (nextOpsInOneProject.Count != 0 && nextOpsInOneProject.IndexOf(nextOp) != 0)
+                    {
+                        nextOp = nextOpsInOneProject.First();
+
+                        var beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
+                        if (operationsCopy[nextOp].StartTime < beginTime)
+                        {
+                            operationsCopy[nextOp].StartTime = beginTime;
+                            CalculateProjectsTimes(operationsCopy[nextOp].Project, operationsCopy, solution);
+                        }
+                        solution.W[(currentOp, nextOp)] = 1;
+                        currentOp = nextOp;
+                        notVisitedOps.Remove(nextOp);
+                        currentOp = nextOp;
+                    }
+                    opsWithOneProj[_operations[nextOp].Project].Remove(nextOp);
+                    _resourceFree[_operations[currentOp].Resource] = operationsCopy[currentOp].EndTime;
+                    _resourceFree[_operations[nextOp].Resource] = operationsCopy[nextOp].EndTime;
+
+                }
+                else
+                {
+                    currentOp = notVisitedOps[(int)(GetRandomChoice() * notVisitedOps.Count)];
+                    notVisitedOps.Remove(currentOp);
+                }
+            }
+            return solution;
+        }
+        public List<int> IsContainsOps(List<int> notVisited, List<int> operations)
+        {
+            List<int> probablyOps = new List<int>();
+            foreach(var op in operations)
+            {
+                if (notVisited.Contains(op))
+                    probablyOps.Add(op);
+            }
+            return probablyOps;
+        }
         public void AddOperationToVisited(ref int currentOp, ref int nextOp, Dictionary<int, Operation> operationsCopy, List <int> visited, ScheduleSolution solution, List<int> operationsByResource)
         {
             var beginTime = operationsCopy[currentOp].StartTime + operationsCopy[currentOp].ActualTime;
@@ -293,7 +375,7 @@ namespace OMMPD
             {
                 for(int j = 0; j <= _ants; j++)
                 {
-                    var solution = BuildSolution();
+                    var solution = BuildSolution2();
                     CalculateEndTime(solution);
                     UpdateBest(solution);
                     LocalUpdatePheromones(solution);
