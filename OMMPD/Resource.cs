@@ -9,7 +9,7 @@ namespace OMMPD
     public class Resource
     {
         public int Id { get; set; }
-        public List<Operation> Operations { get; set; }
+        public List<Operation> Operations { get; set; } = new List<Operation>();
         public double ReleaseTime => (from operation in Operations select operation.EndTime).Max();
         public Resource(int id)
         {

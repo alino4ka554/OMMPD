@@ -28,7 +28,22 @@ namespace OMMPD
             }
             foreach (var op in Operations)
                 CounterOfOperations.Add(op.Key, 0);
-            //InitializeResource();
+            InitializeResource();
+            InitializeW();
+        }
+        public void InitializeW()
+        {
+            foreach(var op1 in Operations)
+            {
+                foreach(var op2 in Operations)
+                {
+                    if(op1.Key != op2.Key)
+                    {
+                        if (op1.Value.DependsOn.Contains(op2.Key))
+                            W[(op2.Key, op1.Key)] = 1;
+                    }
+                }
+            }
         }
         public void InitializeResource()
         {

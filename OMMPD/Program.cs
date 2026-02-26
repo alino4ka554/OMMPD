@@ -33,7 +33,7 @@ namespace OMMPD
                 EvaporationRate = 0.1
             };*/
             var colony = new ACO(ops, iterations: 500, ants: 25,
-                                       beta: 2, alpha: 1, rho: 0.5,
+                                       beta: 1, alpha: 1, rho: 0.5,
                                        tauMin: 0.01, tauMax: 1.0);
             sw.Start();
             colony.Run();
@@ -62,7 +62,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 3; worksheetIndex < 4; worksheetIndex++)
+            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;
