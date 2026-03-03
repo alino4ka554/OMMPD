@@ -13,8 +13,6 @@ namespace OMMPD
         {
             Console.WriteLine("Тестирование гибридного алгоритма муравьиной колонии");
 
-            // Создаем тестовые данные (пример из статьи)
-
             string filePath = "operations.xlsx";
 
             var ops = LoadOperationsFromExcel(filePath);
@@ -32,8 +30,8 @@ namespace OMMPD
                 MinPheromone = 0.01,
                 EvaporationRate = 0.1
             };*/
-            var colony = new ACO(ops, iterations: 500, ants: 25,
-                                       beta: 1, alpha: 1, rho: 0.5,
+            var colony = new ACO(ops, iterations: 100, ants: 300,
+                                       beta: 1, alpha: 2, rho: 0.5,
                                        tauMin: 0.01, tauMax: 1.0);
             sw.Start();
             colony.Run();
@@ -46,7 +44,7 @@ namespace OMMPD
             Console.WriteLine($"Время выполнения программы: {elapsedSeconds:F3} сек.");
             /*try
             {
-                
+
             }
             catch (Exception ex)
             {
@@ -57,12 +55,17 @@ namespace OMMPD
             Console.WriteLine("\nНажмите любую клавишу для выхода...");
             Console.ReadKey();
         }
+        //    static void Main(string[] args)
+        //    {
+        //        SalesmanProblem problem = new SalesmanProblem();
+        //        problem.Run();
+        //    }
         public static List<Operation> LoadOperationsFromExcel(string path)
         {
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
+            for (int worksheetIndex = 2; worksheetIndex < 3; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;

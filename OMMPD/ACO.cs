@@ -46,7 +46,7 @@ namespace OMMPD
             _rho = rho;
             _tauMin = tauMin;
             _tauMax = tauMax;
-            _Q = CalculateQ(operations);
+            _Q = 1;
             OpsToProjects();
             OpsToResources();
             InitPheromones();
@@ -378,7 +378,7 @@ namespace OMMPD
             double summary = 0;
             foreach(var operation in operations)
             {
-                double F = 1 / currentOperations[operation].StartTime ;
+                double F = 1 / (currentOperations[operation].StartTime + 1);
                 double pheij = _pheromones[(currentOp, operation)];
                 _probabilities[(currentOp, operation)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha));
                 probabilities[operation] = _probabilities[(currentOp, operation)];
@@ -425,7 +425,7 @@ namespace OMMPD
                         CalculateEndTime(solution);
                         UpdateBest(solution);
                         LocalUpdatePheromones(solution);
-                        Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
+                        //Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
                     }
                     else continue;
                 }
@@ -480,18 +480,34 @@ namespace OMMPD
         }
         public void GlobalUpdatePheromones()
         {
+            // 1. Сначала испарение для ВСЕХ ребер
+            foreach (var key in _pheromones.Keys.ToList())
+            {
+                _pheromones[key] *= (1 - _rho);
+                if (_pheromones[key] < _tauMin)
+                    _pheromones[key] = _tauMin;
+            }
+
+            // 2. Потом добавление от лучшего решения (элитарная стратегия)
             foreach (var ops in BestSolution.W.Keys)
             {
-                _pheromones[ops] = Math.Max(_pheromones[ops] * (1 - _rho) + _localPheromones[ops], _tauMin);
-                //if (BestSolution.W[(ops)] == 1)
-                //{
-                //    _pheromones[ops] = Math.Min((_tauMax - _tauMin) * _rho + _pheromones[ops], _tauMax);
-                //}
+                //if (BestSolution.W[ops] == 1)
+                {
+                    _pheromones[ops] += _localPheromones[ops];
+                    if (_pheromones[ops] > _tauMax)
+                        _pheromones[ops] = _tauMax;
+                }
+            }
+
+            // 3. Сброс локальных феромонов
+            foreach (var local in _localPheromones.Keys.ToList())
+            {
+                _localPheromones[local] = 0;
             }
         }
         public void LocalUpdatePheromones(ScheduleSolution solution)
         {
-            foreach (var ops in BestSolution.W.Keys)
+            foreach (var ops in solution.W.Keys)
             {
                 if (solution.W[(ops)] == 1)
                     _localPheromones[ops] += _Q / solution.TotalTime;
