@@ -46,6 +46,7 @@ namespace OMMPD
             _rho = rho;
             _tauMin = tauMin;
             _tauMax = tauMax;
+            //_Q = CalculateQ(operations);
             _Q = 1;
             OpsToProjects();
             OpsToResources();
@@ -160,7 +161,8 @@ namespace OMMPD
             foreach(var res in  _resourcesOperations)
             {
                 var operationsByResource = new List<int>(res.Value);
-                var currentOp = operationsByResource[(int)(GetRandomChoice() * operationsByResource.Count)];
+                //var currentOp = operationsByResource[(int)(GetRandomChoice() * operationsByResource.Count)];
+                var currentOp = CalculateNextOperation(0, operationsByResource, operationsCopy);
                 var opsWithOneProj = new Dictionary<int, List<int>>();
                 foreach (var kvp in _opsWithOneResInOneProj[res.Key])
                 {
@@ -379,10 +381,18 @@ namespace OMMPD
             foreach(var operation in operations)
             {
                 double F = 1 / (currentOperations[operation].StartTime + 1);
-                double pheij = _pheromones[(currentOp, operation)];
-                _probabilities[(currentOp, operation)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha));
-                probabilities[operation] = _probabilities[(currentOp, operation)];
-                summary += _probabilities[(currentOp, operation)];
+                if (currentOp != 0)
+                {
+                    double pheij = _pheromones[(currentOp, operation)];
+                    _probabilities[(currentOp, operation)] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha));
+                    probabilities[operation] = _probabilities[(currentOp, operation)];
+                }
+                else
+                {
+                    double pheij = _tauMax;
+                    probabilities[operation] = (Math.Pow(F, _beta) * Math.Pow(pheij, _alpha));
+                }
+                summary += probabilities[operation];
             }
             var randomValue = GetRandomChoice();
             double cumulative = 0;
@@ -432,7 +442,7 @@ namespace OMMPD
                 GlobalUpdatePheromones();
 
                 Console.WriteLine($"Итерация {i}: лучшее время = {BestSolution.TotalTime}");
-            }
+            } 
         }
         public void CalculateEndTime(ScheduleSolution scheduleSolution)
         {
@@ -491,7 +501,7 @@ namespace OMMPD
             // 2. Потом добавление от лучшего решения (элитарная стратегия)
             foreach (var ops in BestSolution.W.Keys)
             {
-                //if (BestSolution.W[ops] == 1)
+                if (BestSolution.W[ops] == 1)
                 {
                     _pheromones[ops] += _localPheromones[ops];
                     if (_pheromones[ops] > _tauMax)
