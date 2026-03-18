@@ -78,8 +78,8 @@ namespace OMMPD
                 foreach (var j in _operations.Values)
                 {
                     
-                    //if ((i != j) && i.Resource == j.Resource)
-                    if(i != j)
+                    if ((i != j) && i.Resource == j.Resource)
+                    //if(i != j)
                     {
                         _localPheromones.Add((i.Id, j.Id), 0);
                         _pheromones.Add((i.Id, j.Id), _tauMax);
@@ -152,6 +152,60 @@ namespace OMMPD
             }
         }
 
+        public ScheduleSolution RecursiveBuild()
+        {
+            var operationsCopy = _operations.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (Operation)kvp.Value.CloneOriginal());
+            ScheduleSolution solution = new ScheduleSolution(operationsCopy, _pheromones);
+            List<int> visited = new List<int>();
+            foreach (var res in _resourcesOperations)
+            {
+                var operationsByResource = new List<int>(res.Value);
+                var prevOp = -1;
+                foreach(var op in operationsByResource)
+                {
+                    var currentOp = CalculateNextOperation(0, operationsByResource, operationsCopy);
+                    if (!visited.Contains(currentOp))
+                        VisitOperation(prevOp, currentOp, ref visited, solution);
+                    prevOp = currentOp;
+                }
+            }
+            return solution;
+        }
+        public void VisitOperation(int prevOp, int currentOp, ref List<int> visited, ScheduleSolution solution)
+        {
+            if (_operations[currentOp].DependsOn.Count != 0)
+            {
+                foreach(var op in _operations[currentOp].DependsOn)
+                {
+                    if(visited.Contains(op)) continue;
+                    VisitOperation(-1, op, ref visited, solution);
+                }
+            }
+            if (!visited.Contains(currentOp))
+            {
+                visited.Add(currentOp);
+                if(prevOp != -1)
+                {
+                    solution.W[(prevOp, currentOp)] = 1;
+                    if (solution.Operations[currentOp].StartTime < solution.Operations[prevOp].EndTime)
+                        solution.Operations[currentOp].StartTime = solution.Operations[prevOp].EndTime;
+                }
+                var operationsByResource = new List<int>(_resourcesOperations[_operations[currentOp].Resource]);
+                foreach (var op in visited)
+                {
+                    if (operationsByResource.Contains(op)) operationsByResource.Remove(op);
+                }
+                while (operationsByResource.Any())
+                {
+                    var op = CalculateNextOperation(currentOp, operationsByResource, solution.Operations);
+                    if (!visited.Contains(op))
+                        VisitOperation(currentOp, op, ref visited, solution);
+                    operationsByResource.Remove(op);
+                }
+            }
+        }
         public ScheduleSolution BuildSolution()
         {
             var operationsCopy = _operations.ToDictionary(
@@ -429,7 +483,7 @@ namespace OMMPD
             {
                 for(int j = 0; j <= _ants; j++)
                 {
-                    var solution = BuildSolution();
+                    var solution = RecursiveBuild();
                     if (solution != null)
                     {
                         CalculateEndTime(solution);

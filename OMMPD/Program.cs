@@ -1,8 +1,9 @@
-﻿using System;
-using Aspose.Cells;
+﻿using Aspose.Cells;
+using Aspose.Cells.Drawing;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Diagnostics;
+using System.Linq;
 
 namespace OMMPD
 {
@@ -30,17 +31,25 @@ namespace OMMPD
                 MinPheromone = 0.01,
                 EvaporationRate = 0.1
             };*/
-            var colony = new ACO(ops, iterations: 50, ants: 10,
+            var colony = new ACO(ops, iterations: 10, ants: 10,
                                        beta: 20, alpha: 4, rho: 0.01,
                                        tauMin: 0.01, tauMax: 1.0);
             sw.Start();
             colony.Run();
             sw.Stop();
             double elapsedSeconds = sw.Elapsed.TotalSeconds;
-
+            
 
             Console.WriteLine("\n=== РЕЗУЛЬТАТЫ ===");
-            Console.WriteLine($"Total time = {colony.BestSolution.TotalTime}");
+            Console.WriteLine($"Время окончания всех проектов (Tk) = {colony.BestSolution.TotalTime}");
+            foreach(var op in colony.BestSolution.Operations)
+            {
+                Console.WriteLine($"Операция № {op.Key}: время начала (Ti) = {op.Value.StartTime}");
+            }
+            foreach(var sequance in colony.BestSolution.ResourceSequences)
+            {
+                Console.WriteLine($"Ресурс № {sequance.Key}; последовательность операций = {string.Join(", ", sequance.Value.ToArray())}");
+            }
             Console.WriteLine($"Время выполнения программы: {elapsedSeconds:F3} сек.");
             /*try
             {
@@ -65,7 +74,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 5; worksheetIndex < 6; worksheetIndex++)
+            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;

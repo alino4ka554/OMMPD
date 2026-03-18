@@ -29,7 +29,7 @@ namespace OMMPD
             foreach (var op in Operations)
                 CounterOfOperations.Add(op.Key, 0);
             InitializeResource();
-            InitializeW();
+            //InitializeW();
         }
         public void InitializeW()
         {
