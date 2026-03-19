@@ -159,9 +159,12 @@ namespace OMMPD
                 kvp => (Operation)kvp.Value.CloneOriginal());
             ScheduleSolution solution = new ScheduleSolution(operationsCopy, _pheromones);
             List<int> visited = new List<int>();
-            foreach (var res in _resourcesOperations)
+            List<int> visitedRes = new List<int>();
+            var currentRes = 9;
+            var flag = 7;
+            while(visited.Count != operationsCopy.Count)
             {
-                var operationsByResource = new List<int>(res.Value);
+                var operationsByResource = new List<int>(_resourcesOperations[currentRes]);
                 var prevOp = -1;
                 foreach(var op in operationsByResource)
                 {
@@ -170,6 +173,16 @@ namespace OMMPD
                         VisitOperation(prevOp, currentOp, ref visited, solution);
                     prevOp = currentOp;
                 }
+                visitedRes.Add(currentRes);
+                var nextRes = currentRes;
+                while (visitedRes.Contains(nextRes))
+                {
+                    if (visitedRes.Count == _resourcesOperations.Count)
+                        break;
+                    nextRes = (int)(GetRandomChoice() * _resourcesOperations.Count);
+                }
+                currentRes = nextRes;
+
             }
             return solution;
         }
@@ -186,12 +199,16 @@ namespace OMMPD
             if (!visited.Contains(currentOp))
             {
                 visited.Add(currentOp);
-                if(prevOp != -1)
-                {
-                    solution.W[(prevOp, currentOp)] = 1;
-                    if (solution.Operations[currentOp].StartTime < solution.Operations[prevOp].EndTime)
-                        solution.Operations[currentOp].StartTime = solution.Operations[prevOp].EndTime;
-                }
+                //if(prevOp != -1)
+                //{
+                //    solution.W[(prevOp, currentOp)] = 1;
+                //    /*if (solution.Operations[currentOp].StartTime < solution.Operations[prevOp].EndTime)
+                //    {
+                //        solution.Operations[currentOp].StartTime = solution.Operations[prevOp].EndTime;
+                //        solution.ConstraintForBeginTime(currentOp);
+                //    }*/
+                //}
+                solution.AddToResource(currentOp, _operations[currentOp].Resource);
                 var operationsByResource = new List<int>(_resourcesOperations[_operations[currentOp].Resource]);
                 foreach (var op in visited)
                 {
@@ -201,11 +218,20 @@ namespace OMMPD
                 {
                     var op = CalculateNextOperation(currentOp, operationsByResource, solution.Operations);
                     if (!visited.Contains(op))
+                    {
+                        //solution.W[(currentOp, op)] = 1;
+                        /*if (solution.Operations[op].StartTime < solution.Operations[currentOp].EndTime)
+                        {
+                            solution.Operations[op].StartTime = solution.Operations[currentOp].EndTime;
+                            solution.ConstraintForBeginTime(op);
+                        }*/
                         VisitOperation(currentOp, op, ref visited, solution);
+                    }
                     operationsByResource.Remove(op);
                 }
             }
         }
+        
         public ScheduleSolution BuildSolution()
         {
             var operationsCopy = _operations.ToDictionary(

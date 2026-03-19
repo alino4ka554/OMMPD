@@ -31,8 +31,8 @@ namespace OMMPD
                 MinPheromone = 0.01,
                 EvaporationRate = 0.1
             };*/
-            var colony = new ACO(ops, iterations: 10, ants: 10,
-                                       beta: 20, alpha: 4, rho: 0.01,
+            var colony = new ACO(ops, iterations: 100, ants: 50,
+                                       beta: 8, alpha: 4, rho: 0.01,
                                        tauMin: 0.01, tauMax: 1.0);
             sw.Start();
             colony.Run();
@@ -74,7 +74,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
+            for (int worksheetIndex = 7; worksheetIndex < 8; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;

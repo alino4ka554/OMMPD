@@ -50,22 +50,45 @@ namespace OMMPD
             foreach (var op in Operations.Values)
             {
                 if (!Resources.ContainsKey(op.Resource))
+                {
                     Resources.Add(op.Resource, new Resource(op.Resource));
-                Resources[op.Resource].Operations.Add(op);
+                    ResourceSequences.Add(op.Resource, new List<int>());
+                }
             }
         }
+
+        public void AddToResource(int op, int res)
+        {
+            if (Resources[res].Operations.Count != 0)
+            {
+                if (Operations[op].StartTime < Resources[res].ReleaseTime)
+                {
+                    Operations[op].StartTime = Resources[res].ReleaseTime;
+                    
+                    ConstraintForBeginTime(op);
+                }
+                W[(ResourceSequences[res].Last(), op)] = 1;
+            }
+            Resources[res].Operations.Add(Operations[op]);
+            ResourceSequences[res].Add(op);
+        }
+
         public void ConstraintForBeginTime(int OpId)
         {
-            foreach(var kvp in Operations)
+            Operation op = Operations[OpId];
+            var time = op.StartTime + op.NormalTime;
+            foreach (var kvp in Operations)
             {
                 if(kvp.Key != OpId)
                 {
-                    if (Operations[OpId].DependsOn.Contains(kvp.Key))
+                    if (Operations[kvp.Key].DependsOn.Contains(OpId))
                     {
-                        Operation op = Operations[kvp.Key];
-                        var time = op.StartTime + op.NormalTime;
-                        if (time > Operations[OpId].StartTime)
-                            Operations[OpId].StartTime = time;
+
+                        if (time > Operations[kvp.Key].StartTime)
+                        {
+                            Operations[kvp.Key].StartTime = time;
+                            ConstraintForBeginTime(kvp.Key);
+                        }
                     }
                 }
             }
