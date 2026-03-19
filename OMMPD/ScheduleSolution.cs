@@ -67,6 +67,7 @@ namespace OMMPD
                     
                     ConstraintForBeginTime(op);
                 }
+                //foreach(var resId in ResourceSequences[res])
                 W[(ResourceSequences[res].Last(), op)] = 1;
             }
             Resources[res].Operations.Add(Operations[op]);

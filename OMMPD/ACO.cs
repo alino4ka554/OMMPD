@@ -10,7 +10,7 @@ namespace OMMPD
     public class ACO
     {
         private int _iterations;
-        private int _ants;
+        private Dictionary<int, int> _ants = new Dictionary<int, int>();
         private double _beta;
         private double _alpha;
         private double _rho;
@@ -40,7 +40,7 @@ namespace OMMPD
             _operations = operations.ToDictionary(op => op.Id);
             ops = operations.ToDictionary(op => op.Id);
             _iterations = iterations;
-            _ants = ants;
+            //_ants = ants;
             _beta = beta;
             _alpha = alpha;
             _rho = rho;
@@ -51,9 +51,19 @@ namespace OMMPD
             OpsToProjects();
             OpsToResources();
             InitPheromones();
-            OrderingOneResInOneProj();
-            ConvertToGraph();
+            //OrderingOneResInOneProj();
+            //ConvertToGraph();
+            InitAnts(ants);
             //CalculateBeginTime(operations);
+        }
+        public void InitAnts(int count)
+        {
+            var resources = _resourcesOperations.Keys.ToList();
+            for(int i = 0; i < count; i++) 
+            {
+                int resourceId = i % resources.Count;
+                _ants.Add(i, resourceId);
+            }
         }
         private double CalculateQ(List<Operation> operations)
         {
@@ -152,7 +162,7 @@ namespace OMMPD
             }
         }
 
-        public ScheduleSolution RecursiveBuild()
+        public ScheduleSolution RecursiveBuild(int firstResource)
         {
             var operationsCopy = _operations.ToDictionary(
                 kvp => kvp.Key,
@@ -160,11 +170,13 @@ namespace OMMPD
             ScheduleSolution solution = new ScheduleSolution(operationsCopy, _pheromones);
             List<int> visited = new List<int>();
             List<int> visitedRes = new List<int>();
-            var currentRes = 9;
+            var currentRes = firstResource;
             var flag = 7;
             while(visited.Count != operationsCopy.Count)
+            //foreach (var res in _resourcesOperations) 
             {
-                var operationsByResource = new List<int>(_resourcesOperations[currentRes]);
+                var operationsByResource = new List<int>(_resourcesOperations.ElementAt(currentRes).Value);
+                //var operationsByResource = new List<int>(res.Value);
                 var prevOp = -1;
                 foreach(var op in operationsByResource)
                 {
@@ -193,12 +205,12 @@ namespace OMMPD
                 foreach(var op in _operations[currentOp].DependsOn)
                 {
                     if(visited.Contains(op)) continue;
-                    VisitOperation(-1, op, ref visited, solution);
+                    VisitOperation(-2, op, ref visited, solution);
                 }
             }
             if (!visited.Contains(currentOp))
             {
-                visited.Add(currentOp);
+
                 //if(prevOp != -1)
                 //{
                 //    solution.W[(prevOp, currentOp)] = 1;
@@ -208,8 +220,14 @@ namespace OMMPD
                 //        solution.ConstraintForBeginTime(currentOp);
                 //    }*/
                 //}
-                solution.AddToResource(currentOp, _operations[currentOp].Resource);
+                
                 var operationsByResource = new List<int>(_resourcesOperations[_operations[currentOp].Resource]);
+                if (prevOp != -2)
+                {
+                    visited.Add(currentOp);
+                    solution.AddToResource(currentOp, _operations[currentOp].Resource);
+                }
+                else currentOp = 0;
                 foreach (var op in visited)
                 {
                     if (operationsByResource.Contains(op)) operationsByResource.Remove(op);
@@ -224,9 +242,10 @@ namespace OMMPD
                         {
                             solution.Operations[op].StartTime = solution.Operations[currentOp].EndTime;
                             solution.ConstraintForBeginTime(op);
-                        }*/
+                        }*/ 
                         VisitOperation(currentOp, op, ref visited, solution);
                     }
+                    currentOp = op;
                     operationsByResource.Remove(op);
                 }
             }
@@ -507,15 +526,16 @@ namespace OMMPD
             
             for(int i = 0; i <= _iterations; i++)
             {
-                for(int j = 0; j <= _ants; j++)
+                //for(int j = 0; j <= _ants; j++)
+                foreach(var ant in _ants)
                 {
-                    var solution = RecursiveBuild();
+                    var solution = RecursiveBuild(ant.Value);
                     if (solution != null)
                     {
                         CalculateEndTime(solution);
                         UpdateBest(solution);
                         LocalUpdatePheromones(solution);
-                        //Console.WriteLine($"Решение {j} муравья: лучшее время = {solution.TotalTime}");
+                        //Console.WriteLine($"Решение {ant.Key} муравья: лучшее время = {solution.TotalTime}");
                     }
                     else continue;
                 }
