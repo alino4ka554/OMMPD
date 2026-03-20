@@ -14,7 +14,7 @@ namespace OMMPD
         public Dictionary<int, Resource> Resources { get; set; } = new Dictionary<int, Resource>();
         public double TotalTime { get; set; }
         public double TotalCost { get; set; }
-
+        public List<List<int>> CriticalWays = new List<List<int>>();
         public Dictionary<int, int> CounterOfOperations { get; set; } = new Dictionary<int, int>();
         public Dictionary<int, List<int>> ResourceSequences { get; set; } = new Dictionary<int, List<int>>();
         public Dictionary<(int, int), int> W { get; set; } = new Dictionary<(int, int), int>();
@@ -95,6 +95,43 @@ namespace OMMPD
             }
         }
 
+        public void FindCriticalWay()
+        {
+            InitializeDependsForResource();
+            var lastOp = Operations.Values.Where(op => op.EndTime == TotalTime);
+            foreach(var ops in lastOp)
+            {
+                var criticalWay = new List<int> { ops.Id };
+                AddToCriticalWay(criticalWay, ops.Id);
+                if (Operations[criticalWay.First()].DependsOn.Count() == 0)
+                    CriticalWays.Add(criticalWay);
+            }
+        }
+        public void InitializeDependsForResource()
+        {
+            foreach(var w in W)
+            {
+                if(w.Value == 1)
+                {
+                    Operations[w.Key.Item2].DependsOn.Add(w.Key.Item1);
+                }
+
+            }
+        }
+        public void AddToCriticalWay(List<int> criticalWay, int op)
+        {
+            if (Operations[op].DependsOn.Count != 0)
+            {
+                foreach(var ops in Operations[op].DependsOn)
+                {
+                    if (Operations[ops].StartTime + Operations[ops].ActualTime == Operations[op].StartTime)
+                    {
+                        criticalWay.Insert(0, ops);
+                        AddToCriticalWay(criticalWay, ops);
+                    }
+                }
+            }
+        }
         public void ConstraintForOneResource(int i, int j)
         {
             int w = W[(i, j)];

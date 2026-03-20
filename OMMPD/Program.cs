@@ -50,6 +50,11 @@ namespace OMMPD
             {
                 Console.WriteLine($"Ресурс № {sequance.Key}; последовательность операций = {string.Join(", ", sequance.Value.ToArray())}");
             }
+            colony.BestSolution.FindCriticalWay();
+            foreach(var criticalWay in colony.BestSolution.CriticalWays)
+            {
+                Console.WriteLine($"Критический путь: {string.Join(", ", criticalWay.ToArray())}");
+            }
             Console.WriteLine($"Время выполнения программы: {elapsedSeconds:F3} сек.");
             /*try
             {
@@ -74,7 +79,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 14; worksheetIndex < 15; worksheetIndex++)
+            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;
