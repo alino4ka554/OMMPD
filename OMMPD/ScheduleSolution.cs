@@ -95,9 +95,47 @@ namespace OMMPD
             }
         }
 
+        public void RecalculateFrom(int opId)
+        {
+            var queue = new Queue<int>();
+            queue.Enqueue(opId);
+
+            while (queue.Count > 0)
+            {
+                int current = queue.Dequeue();
+
+                foreach (var op in Operations.Values)
+                {
+                    if (op.DependsOn.Contains(current))
+                    {
+                        double newStart = op.DependsOn
+                            .Max(prevId => Operations[prevId].EndTime);
+
+                        if (op.StartTime != newStart)
+                        {
+                            op.StartTime = newStart;
+
+                            queue.Enqueue(op.Id);
+                        }
+                    }
+                }
+            }
+            CalculateEndTime();
+        }
+        public void CalculateEndTime()
+        {
+            var operations = Operations;
+            var maxEndTime = 0.0;
+            foreach(var op in Operations.Values)
+            {
+                if(op.EndTime > maxEndTime)
+                    maxEndTime = op.EndTime;
+            }
+            TotalTime = maxEndTime;
+        }
         public void FindCriticalWay()
         {
-            InitializeDependsForResource();
+            //InitializeDependsForResource();
             var lastOp = Operations.Values.Where(op => op.EndTime == TotalTime);
             foreach(var ops in lastOp)
             {

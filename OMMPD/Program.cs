@@ -55,6 +55,8 @@ namespace OMMPD
             {
                 Console.WriteLine($"Критический путь: {string.Join(", ", criticalWay.ToArray())}");
             }
+            var criticalWayMethod = new CPM(colony.BestSolution, 1);
+            criticalWayMethod.Run();
             Console.WriteLine($"Время выполнения программы: {elapsedSeconds:F3} сек.");
             /*try
             {
@@ -79,7 +81,7 @@ namespace OMMPD
             var operations = new List<Operation>();
             Workbook wb = new Workbook(path);
             WorksheetCollection collection = wb.Worksheets;
-            for (int worksheetIndex = 1; worksheetIndex < 2; worksheetIndex++)
+            for (int worksheetIndex = 0; worksheetIndex < 1; worksheetIndex++)
             {
                 Worksheet worksheet = collection[worksheetIndex];
                 int rows = worksheet.Cells.MaxDataRow;
@@ -105,6 +107,9 @@ namespace OMMPD
                         Resource = int.TryParse(worksheet.Cells[i, 3].Value?.ToString(), out var resVal) ? resVal : 0,
                         Project = int.TryParse(worksheet.Cells[i, 2].Value?.ToString(), out var prVal) ? prVal : 0,
                         NormalTime = double.TryParse(worksheet.Cells[i, 4].Value?.ToString(), out var ntVal) ? ntVal : 0,
+                        CrashTime = double.TryParse(worksheet.Cells[i, 5].Value?.ToString(), out var ctVal) ? ctVal : 0,
+                        NormalCost = double.TryParse(worksheet.Cells[i, 6].Value?.ToString(), out var ncVal) ? ncVal : 0,
+                        CrashCost = double.TryParse(worksheet.Cells[i, 7].Value?.ToString(), out var ccVal) ? ccVal : 0,
 
                     };
                     operations.Add(op);
